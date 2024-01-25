@@ -53,7 +53,8 @@ import java.util.Vector;
 
 
 public class TflitePlugin implements MethodCallHandler {
-  private final Registrar mRegistrar;
+  private Context context;
+  private MethodChannel channel;
   private Interpreter tfLite;
   private boolean tfLiteBusy = false;
   private int inputSize = 0;
@@ -82,14 +83,24 @@ public class TflitePlugin implements MethodCallHandler {
   List<Integer> parentToChildEdges = new ArrayList<>();
   List<Integer> childToParentEdges = new ArrayList<>();
 
+  @Override
+  public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
+    context = flutterPluginBinding.getApplicationContext();
+    channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "tflite");
+    channel.setMethodCallHandler(this);
+  }
+
+  @Override
+  public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+    channel.setMethodCallHandler(null);
+    context = null;
+  }
+
   public static void registerWith(Registrar registrar) {
     final MethodChannel channel = new MethodChannel(registrar.messenger(), "tflite");
     channel.setMethodCallHandler(new TflitePlugin(registrar));
   }
 
-  private TflitePlugin(Registrar registrar) {
-    this.mRegistrar = registrar;
-  }
 
   @Override
   public void onMethodCall(MethodCall call, Result result) {
@@ -205,7 +216,7 @@ public class TflitePlugin implements MethodCallHandler {
     String key = null;
     AssetManager assetManager = null;
     if (isAsset) {
-      assetManager = mRegistrar.context().getAssets();
+      assetManager = context.getAssets();
       key = mRegistrar.lookupKeyForAsset(model);
       AssetFileDescriptor fileDescriptor = assetManager.openFd(key);
       FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
